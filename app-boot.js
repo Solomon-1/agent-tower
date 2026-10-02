@@ -17,3 +17,32 @@ HOST.auth.onNeed=()=>{const c=chipEl();c.textContent='Tap here to stay signed in
 const nudge=()=>{const a=HOST.auth;if(a.exp&&a.exp-Date.now()<10*60000)HOST.signIn(true).then(()=>{if(chip)chip.style.display='none';},()=>{});};
 document.addEventListener('pointerdown',nudge,true);document.addEventListener('keydown',nudge,true);
 })();
+// Flight recorder: keeps the last network calls and errors that matter for voice and chat, and saves them to
+// CEO Office/Diagnostics in Drive shortly after something fails, so a failure on the phone can be read later.
+(function(){
+'use strict';
+if(!window.HOST)return;
+const DIR='1R6Yjrr7a9MsftgniHlztGQ-TilBuxXk8',LOG=[],cut=s=>String(s==null?'':s).slice(0,400);
+let timer=0,last=0;
+const rec=(kind,o)=>{LOG.push(Object.assign({t:new Date().toISOString(),kind},o));if(LOG.length>60)LOG.shift();};
+function flush(why){if(timer)return;timer=setTimeout(async()=>{timer=0;if(Date.now()-last<45000)return;last=Date.now();
+  const body=JSON.stringify({schema:'agent-tower/host-diag/1',why,at:new Date().toISOString(),ua:navigator.userAgent,origin:location.origin,top:window.top===window,
+    standalone:!!(navigator.standalone||matchMedia('(display-mode: standalone)').matches),live:!!window.TOWER_LIVE_CFG,vapi:!!window.Vapi,
+    mic:await (navigator.permissions&&navigator.permissions.query?navigator.permissions.query({name:'microphone'}).then(p=>p.state,()=>'?'):Promise.resolve('?')),log:LOG},null,1);
+  try{await HOST.mcp.callTool('Google Drive','create_file',{title:'host-diag '+new Date().toISOString().replace(/[:.]/g,'-')+'.json',parentId:DIR,textContent:body,contentMimeType:'application/json',disableConversionToGoogleType:true});}catch(e){}
+},6000);}
+window.TOWER_DIAG={log:LOG,flush};
+const WATCH=/script\.google|googleusercontent|vapi|daily\.co/i;
+const f0=window.fetch.bind(window);
+window.fetch=async function(input,init){const url=typeof input==='string'?input:(input&&input.url)||'';if(!WATCH.test(url))return f0(input,init);
+  const t0=Date.now();try{const r=await f0(input,init);let peek='';try{peek=await r.clone().text();}catch(e){}
+    rec('fetch',{url:cut(url.replace(/([?&](web_key|key|token)=)[^&]+/gi,'$1***')),method:(init&&init.method)||'GET',status:r.status,ms:Date.now()-t0,body:cut(peek.replace(/"(web_key|jarvis_web_key|id_token)"\s*:\s*"[^"]*"/g,'"$1":"***"'))});
+    if(!r.ok||/"error"/.test(peek))flush('fetch '+r.status);return r;}
+  catch(e){rec('fetch-fail',{url:cut(url),ms:Date.now()-t0,error:cut(e&&e.message||e)});flush('fetch-fail');throw e;}};
+addEventListener('error',e=>{rec('error',{msg:cut(e.message),src:cut(e.filename)+':'+e.lineno});flush('error');});
+addEventListener('unhandledrejection',e=>{const r=e.reason;rec('rejection',{msg:cut(r&&(r.message||JSON.stringify(r))||r)});flush('rejection');});
+const ce=console.error.bind(console);console.error=function(...a){rec('console',{msg:cut(a.map(x=>{try{return typeof x==='string'?x:x&&x.message||JSON.stringify(x);}catch(e){return String(x);}}).join(' '))});flush('console');return ce(...a);};
+// The tower's own status line: catch "Trouble on the line" and "Could not start" as soon as they show.
+new MutationObserver(ms=>{for(const m of ms){const n=m.target&&m.target.nodeType===3?m.target.parentNode:m.target;if(!n||n===document.body||n===document.documentElement)continue;const t=n.textContent||'';if(/Trouble on the line|Could not start|Microphone blocked/.test(t)&&t.length<600){rec('status',{text:cut(t)});flush('status');break;}}})
+  .observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+})();
