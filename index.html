@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Agent Tower</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Agent Tower">
+<meta name="theme-color" content="#1b2340">
+<style>
+:root{--bg:#1b2340;--ink:#f3eedd;--mute:#a9b0c8;--acc:#f2b84b;--card:#26305a}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+#gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px}
+.card{background:var(--card);border-radius:16px;padding:24px;max-width:360px;width:100%;text-align:center;box-shadow:0 10px 40px #0006}
+.card h1{margin:8px 0 4px;font-size:22px}.card p{color:var(--mute);margin:6px 0 16px;font-size:14px}
+button{font:inherit;border:0;border-radius:10px;padding:12px 18px;background:var(--acc);color:#1b1b1b;font-weight:600;cursor:pointer;width:100%}
+button.ghost{background:transparent;color:var(--mute);border:1px solid #fff2;margin-top:8px}
+#bar{height:4px;background:#fff1;border-radius:4px;overflow:hidden;margin-top:12px;display:none}#bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .3s}
+#tower{position:fixed;inset:0;width:100%;height:100%;border:0;display:none;background:var(--bg)}
+#chip{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom));background:#000c;color:#fff;padding:8px 14px;border-radius:20px;font-size:13px;display:none;z-index:9;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="gate"><div class="card">
+  <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><rect x="18" y="6" width="28" height="54" rx="3" fill="#f2b84b"/><g fill="#1b2340"><rect x="23" y="12" width="7" height="6"/><rect x="34" y="12" width="7" height="6"/><rect x="23" y="23" width="7" height="6"/><rect x="34" y="23" width="7" height="6"/><rect x="23" y="34" width="7" height="6"/><rect x="34" y="34" width="7" height="6"/><rect x="28" y="47" width="8" height="13"/></g></svg>
+  <h1>Agent Tower</h1>
+  <p id="msg">Sign in with Google to open your tower.</p>
+  <button id="go">Sign in with Google</button>
+  <button id="offline" class="ghost" style="display:none">Open the last saved copy</button>
+  <div id="bar"><i></i></div>
+</div></div>
+<iframe id="tower" title="Agent Tower" allow="microphone; camera; autoplay; clipboard-write; fullscreen"></iframe>
+<div id="chip"></div>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="config.js"></script>
+<script src="shim.js"></script>
+<script src="loader.js"></script>
+</body>
+</html>

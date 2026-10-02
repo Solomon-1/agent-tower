@@ -1,0 +1,8 @@
+#!/bin/sh
+# Blocks a commit that adds anything shaped like a key. Turn on once per clone: git config core.hooksPath .githooks
+PAT="web_key[[:space:]]*[:=][[:space:]]*['\"][A-Za-z0-9_-]{12,}|vapi_public_key[[:space:]]*[:=][[:space:]]*['\"][0-9a-f-]{20,}|GOCSPX-|sk-ant-|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|-----BEGIN"
+if git diff --cached -U0 --no-color -- . ':!site.bin' ':!.githooks' ':!.github' | grep '^+' | grep -Eq "$PAT"; then
+  echo "pre-commit: this commit looks like it contains a key or password. Remove it and commit again."; exit 1
+fi
+if git diff --cached --name-only | grep -Eq '\.key$|(^|/)\.env$'; then echo "pre-commit: key files never go in this repo."; exit 1; fi
+if command -v gitleaks >/dev/null 2>&1; then gitleaks protect --staged --redact -v || exit 1; fi
