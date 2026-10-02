@@ -11,21 +11,28 @@ const bar=p=>{$('bar').style.display=p==null?'none':'block';$('bar').firstElemen
 const idb=()=>new Promise((ok,no)=>{const r=indexedDB.open('agent-tower',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);});
 async function kv(k,v){try{const db=await idb();return await new Promise((ok,no)=>{const tx=db.transaction('kv',v===undefined?'readonly':'readwrite');const st=tx.objectStore('kv');const r=v===undefined?st.get(k):st.put(v,k);r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);});}catch(e){return null;}}
 
+// The tower runs as its own top-level page (app.html) on this site's real address. A frame would give it no
+// address ("null" origin), and Vapi and the microphone refuse calls from there. The service worker serves app.html
+// from a cache this page fills with the opened build.
 function inject(html){
-  const boot='<script>window.claude=parent.HOST.claude;window.TOWER_HOSTED=true;if(parent.HOST.liveCfg)window.TOWER_LIVE_CFG=parent.HOST.liveCfg;window.TOWER_ID_TOKEN=()=>parent.HOST.idToken();<\/script>';
+  const boot='<script src="config.js"><\/script><script src="https://accounts.google.com/gsi/client" async><\/script><script src="shim.js"><\/script><script src="app-boot.js"><\/script>';
   const i=html.search(/<head[^>]*>/i);
   if(i<0)return boot+html;
   const j=html.indexOf('>',i)+1;return html.slice(0,j)+boot+html.slice(j);
 }
-function show(html){
-  const f=$('tower');f.srcdoc=inject(html);f.style.display='block';$('gate').style.display='none';
-  f.addEventListener('load',()=>{try{f.contentDocument.addEventListener('pointerdown',nudge,true);f.contentDocument.addEventListener('keydown',nudge,true);}catch(e){}});
+async function show(html){
+  try{if(HOST.liveCfg)sessionStorage.setItem('at.live',JSON.stringify(HOST.liveCfg));}catch(e){}
+  try{
+    if(!('serviceWorker' in navigator)||!window.caches)throw new Error('no service worker');
+    await navigator.serviceWorker.ready;
+    const c=await caches.open('at-app');
+    await c.put(new Request('app.html'),new Response(inject(html),{headers:{'Content-Type':'text/html; charset=utf-8'}}));
+    location.replace('app.html');
+  }catch(e){
+    // Fallback: write the tower into this page. Same address, so Vapi and the mic still work.
+    document.open();document.write(inject(html));document.close();
+  }
 }
-// Refresh the Google token inside a tap shortly before it runs out, so calls never stall.
-function nudge(){const a=HOST.auth;if(a.exp&&a.exp-Date.now()<10*60000)HOST.signIn(true).then(chipOff,()=>{});}
-function chipOff(){$('chip').style.display='none';}
-HOST.auth.onNeed=()=>{const c=$('chip');c.textContent='Tap here to stay signed in';c.style.display='block';};
-$('chip').onclick=()=>HOST.signIn(true).then(chipOff,e=>{$('chip').textContent='Sign-in did not finish. Tap to try again';});
 
 // The build sits in this repo sealed (site.bin); the key to open it lives only in Elisha's Drive.
 async function siteKey(){
@@ -71,6 +78,7 @@ $('go').onclick=()=>{
   msg('Signing in');HOST.idToken();HOST.signIn(false).then(boot,e=>{msg('Sign-in did not finish ('+e.message+'). Tap to try again.');});
 };
 $('offline').onclick=async()=>{const c=await kv('build');if(c)show(c.html);};
+window.TOWER_KV=kv;
 (async()=>{
   if((await kv('build')))$('offline').style.display='block';
   if(HOST.fresh())boot();
