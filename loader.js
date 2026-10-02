@@ -12,7 +12,7 @@ const idb=()=>new Promise((ok,no)=>{const r=indexedDB.open('agent-tower',1);r.on
 async function kv(k,v){try{const db=await idb();return await new Promise((ok,no)=>{const tx=db.transaction('kv',v===undefined?'readonly':'readwrite');const st=tx.objectStore('kv');const r=v===undefined?st.get(k):st.put(v,k);r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);});}catch(e){return null;}}
 
 function inject(html){
-  const boot='<script>window.claude=parent.HOST.claude;window.TOWER_HOSTED=true;if(parent.HOST.liveCfg)window.TOWER_LIVE_CFG=parent.HOST.liveCfg;<\/script>';
+  const boot='<script>window.claude=parent.HOST.claude;window.TOWER_HOSTED=true;if(parent.HOST.liveCfg)window.TOWER_LIVE_CFG=parent.HOST.liveCfg;window.TOWER_ID_TOKEN=()=>parent.HOST.idToken();<\/script>';
   const i=html.search(/<head[^>]*>/i);
   if(i<0)return boot+html;
   const j=html.indexOf('>',i)+1;return html.slice(0,j)+boot+html.slice(j);
@@ -66,7 +66,7 @@ async function boot(){
 $('go').onclick=()=>{
   if(!CFG.clientId){msg('This site is waiting on its Google client ID.');return;}
   if(HOST.fresh())return boot();
-  msg('Signing in');HOST.signIn(false).then(boot,e=>{msg('Sign-in did not finish ('+e.message+'). Tap to try again.');});
+  msg('Signing in');HOST.idToken();HOST.signIn(false).then(boot,e=>{msg('Sign-in did not finish ('+e.message+'). Tap to try again.');});
 };
 $('offline').onclick=async()=>{const c=await kv('build');if(c)show(c.html);};
 (async()=>{

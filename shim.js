@@ -160,8 +160,22 @@ const MCP={
   }
 };
 
+// Google ID token (proves it is Elisha) for the live endpoint. Separate from the data access token above.
+const ID={tok:'',exp:0,init:false,wait:[]};
+function jwtExp(t){try{return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).exp*1000;}catch(e){return 0;}}
+function idInit(){
+  if(ID.init||!(window.google&&google.accounts&&google.accounts.id))return ID.init;
+  google.accounts.id.initialize({client_id:CFG.clientId,auto_select:true,login_hint:CFG.hint||'',use_fedcm_for_prompt:true,cancel_on_tap_outside:false,
+    callback:r=>{if(r&&r.credential){ID.tok=r.credential;ID.exp=jwtExp(r.credential);}const w=ID.wait.splice(0);w.forEach(f=>f(ID.tok));}});
+  return ID.init=true;
+}
+function idToken(){
+  if(ID.tok&&ID.exp>Date.now()+120000)return Promise.resolve(ID.tok);
+  if(!idInit())return Promise.resolve('');
+  return new Promise(ok=>{ID.wait.push(ok);google.accounts.id.prompt(n=>{if(n&&(n.isNotDisplayed&&n.isNotDisplayed()||n.isSkippedMoment&&n.isSkippedMoment())){const w=ID.wait.splice(0);w.forEach(f=>f(''));}});setTimeout(()=>{const w=ID.wait.splice(0);w.forEach(f=>f(ID.tok||''));},20000);});
+}
 window.HOST={
-  auth:AUTH,signIn,token,fresh,mcp:MCP,
+  auth:AUTH,signIn,token,fresh,mcp:MCP,idToken,
   // What the tower sees as window.claude inside its frame.
   claude:{hosted:true,use:async n=>n==='mcp'?MCP:null}
 };
