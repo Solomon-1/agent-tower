@@ -41,8 +41,10 @@ async function open(buf){
 }
 // Live chat and voice settings come from endpoint.json in Drive after sign-in, so no key is ever in this repo.
 async function liveCfg(){
-  if(!CFG.endpointFileId)return;
-  try{const d=await HOST.mcp.callTool('Google Drive','download_file_content',{fileId:CFG.endpointFileId});
+  if(!CFG.endpointFolderId)return;
+  try{const l=await HOST.mcp.callTool('Google Drive','search_files',{query:"parentId = '"+CFG.endpointFolderId+"' and title = 'endpoint.json'",pageSize:5,orderBy:'modifiedTime desc'});
+    const f=((l.payload||{}).files||[])[0];if(!f)return;
+    const d=await HOST.mcp.callTool('Google Drive','download_file_content',{fileId:f.id});
     const e=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(d.payload.content),c=>c.charCodeAt(0))));
     if(e.url&&e.web_key)HOST.liveCfg={url:e.url,web_key:e.web_key,pk:e.vapi_public_key,aid:e.assistant_id};
   }catch(e){}
