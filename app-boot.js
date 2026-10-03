@@ -45,4 +45,19 @@ const ce=console.error.bind(console);console.error=function(...a){rec('console',
 // The tower's own status line: catch "Trouble on the line" and "Could not start" as soon as they show.
 new MutationObserver(ms=>{for(const m of ms){const n=m.target&&m.target.nodeType===3?m.target.parentNode:m.target;if(!n||n===document.body||n===document.documentElement)continue;const t=n.textContent||'';if(/Trouble on the line|Could not start|Microphone blocked/.test(t)&&t.length<600){rec('status',{text:cut(t)});flush('status');break;}}})
   .observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+
+// A tower opened from the phone's saved copy can be an old build. Whenever the tower comes to the front,
+// compare it with the site's newest build and go back through the sign-in page to load the new one.
+let upd=null;
+async function freshCheck(){
+  let meta=null;try{meta=await (await fetch('site.json',{cache:'no-store'})).json();}catch(e){return;}
+  const have=(window.TOWER_BUILD||{}).sha||'';if(!meta||!meta.sha||meta.sha===have)return;
+  let tried='';try{tried=sessionStorage.getItem('at.upd')||'';}catch(e){}
+  if(tried!==meta.sha&&HOST.fresh()){try{sessionStorage.setItem('at.upd',meta.sha);}catch(e){}location.replace('./');return;}
+  if(!upd){upd=document.createElement('div');upd.style.cssText='position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top));background:#d9b45c;color:#1b1420;padding:9px 16px;border-radius:20px;font:600 13px system-ui,sans-serif;z-index:2147483647;cursor:pointer;box-shadow:0 2px 0 #0006';
+    upd.onclick=e=>{e.stopPropagation();try{sessionStorage.removeItem('at.upd');}catch(x){}location.replace('./');};(document.body||document.documentElement).appendChild(upd);}
+  upd.textContent='Tower version '+meta.v+' is ready. Tap to update';
+}
+addEventListener('load',()=>setTimeout(freshCheck,1500));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')freshCheck();});
 })();
