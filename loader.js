@@ -16,8 +16,10 @@ async function kv(k,v){try{const db=await idb();return await new Promise((ok,no)
 // from a cache this page fills with the opened build.
 function inject(html){
   const boot='<script src="config.js"><\/script><script src="https://accounts.google.com/gsi/client" async><\/script><script src="shim.js"><\/script><script src="app-boot.js"><\/script>';
+  // The build is a bare fragment (claude.ai adds the page skeleton); without a doctype and viewport an iPhone draws it as a 980px desktop page.
+  const head='<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">';
   const i=html.search(/<head[^>]*>/i);
-  if(i<0)return boot+html;
+  if(i<0)return head+boot+html;
   const j=html.indexOf('>',i)+1;return html.slice(0,j)+boot+html.slice(j);
 }
 async function show(html){
