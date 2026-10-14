@@ -2,6 +2,8 @@
 // and keeps the Google sign-in fresh. If there is no sign-in in this tab, it goes back to the sign-in page.
 (function(){
 'use strict';
+// a ticket link (?ticket=TKT-...) survives the trip through the sign-in page; the tower opens it once tickets load
+try{const q=new URLSearchParams(location.search).get('ticket');if(q)sessionStorage.setItem('at.ticket',q);}catch(e){}
 if(!window.HOST){location.replace('./');return;}
 if(!HOST.fresh()&&!sessionStorage.getItem('at.tok')){location.replace('./');return;}
 window.claude=HOST.claude;window.TOWER_HOSTED=true;

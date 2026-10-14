@@ -3,6 +3,7 @@
 (function(){
 'use strict';
 const CFG=window.TOWER_CFG||{};
+try{const q=new URLSearchParams(location.search).get('ticket');if(q)sessionStorage.setItem('at.ticket',q);}catch(e){}
 const $=id=>document.getElementById(id);
 const msg=t=>{$('msg').textContent=t;};
 const bar=p=>{$('bar').style.display=p==null?'none':'block';$('bar').firstElementChild.style.width=Math.round((p||0)*100)+'%';};
