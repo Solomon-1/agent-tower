@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Sign Application</title>
+<style>
+:root{--bg:#f3f2ee;--card:#fff;--fg:#1f2328;--muted:#5d636b;--accent:#1d4e89;--accent-fg:#fff;--line:#d5d3cc;--hl:rgba(29,78,137,.14)}
+@media (prefers-color-scheme:dark){:root{--bg:#16181b;--card:#202327;--fg:#ecebe7;--muted:#a3a8ae;--accent:#5b8fd1;--accent-fg:#0d1117;--line:#33373c;--hl:rgba(91,143,209,.22)}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:14px}
+h1{font-size:1.2rem;margin:0;text-wrap:balance}
+p{margin:0;color:var(--muted)}
+.paper{position:relative;background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.paper canvas{display:block;width:100%;height:auto}
+.zone{position:absolute;border:2px dashed var(--accent);background:var(--hl);border-radius:6px;color:var(--accent);font-weight:700;font-size:clamp(11px,2.2vw,16px);display:flex;align-items:center;justify-content:center;cursor:pointer;animation:pulse 1.6s ease-in-out infinite}
+.zone.done{animation:none;background:transparent;border-color:transparent;color:transparent}
+@keyframes pulse{50%{background:transparent}}
+@media (prefers-reduced-motion:reduce){.zone{animation:none}}
+.row{display:flex;flex-wrap:wrap;gap:10px}
+button{font:inherit;font-weight:600;border-radius:8px;padding:12px 18px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.pad{background:var(--card);border-radius:10px;padding:14px;width:min(720px,100%);display:flex;flex-direction:column;gap:10px}
+.pad canvas{width:100%;aspect-ratio:3/1;background:#fff;border:1px solid var(--line);border-radius:6px;touch-action:none}
+.msg{padding:12px;border-radius:8px;background:var(--card);border:1px solid var(--line)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Auxiliary pioneer application: committee approval</h1>
+  <p id="hint">Tap the highlighted line at the lower right and sign with your finger. Initials are fine.</p>
+  <div class="msg" id="status">Opening the form…</div>
+  <div class="paper" id="paper" hidden>
+    <canvas id="form"></canvas>
+    <div class="zone" id="zone">Tap to sign</div>
+  </div>
+  <div class="row" id="actions" hidden>
+    <button class="primary" id="send" type="button">Send signed copy back</button>
+    <button id="redo" type="button">Redo signature</button>
+  </div>
+  <p id="after" hidden>This sends a picture of the signed form. On iPhone pick Messages and send it to Elisha. Nothing is uploaded anywhere.</p>
+</main>
+
+<div class="modal" id="modal" hidden>
+  <div class="pad">
+    <strong>Sign here</strong>
+    <canvas id="sig"></canvas>
+    <div class="row">
+      <button class="primary" id="ok" type="button">Done</button>
+      <button id="clear" type="button">Clear</button>
+      <button id="cancel" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(async()=>{
+// Third committee line, as fractions of the photo (lower right, empty).
+const BOX={x0:0.688,x1:0.905,y0:0.815,y1:0.880};
+const $=id=>document.getElementById(id);
+const status=$('status'),form=$('form'),fctx=form.getContext('2d');
+let base=null,sigImg=null;
+
+function b64u(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return Uint8Array.from(atob(s),c=>c.charCodeAt(0));}
+try{
+  const k=location.hash.slice(1);
+  if(!k)throw new Error('nokey');
+  const key=await crypto.subtle.importKey('raw',b64u(k),'AES-GCM',false,['decrypt']);
+  const buf=new Uint8Array(await (await fetch('form.bin',{cache:'no-store'})).arrayBuffer());
+  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)},key,buf.slice(12));
+  base=await createImageBitmap(new Blob([plain],{type:'image/jpeg'}));
+}catch(e){status.textContent='This link is incomplete. Ask Elisha to text the full link again.';return;}
+form.width=base.width;form.height=base.height;
+status.hidden=true;$('paper').hidden=false;
+const zone=$('zone');
+Object.assign(zone.style,{left:BOX.x0*100+'%',top:BOX.y0*100+'%',width:(BOX.x1-BOX.x0)*100+'%',height:(BOX.y1-BOX.y0)*100+'%'});
+render();
+
+function render(){
+  fctx.drawImage(base,0,0);
+  if(!sigImg)return;
+  const W=form.width,H=form.height;
+  const bx=BOX.x0*W,by=BOX.y0*H,bw=(BOX.x1-BOX.x0)*W,bh=(BOX.y1-BOX.y0)*H;
+  const s=Math.min(bw/sigImg.width,bh/sigImg.height);
+  const w=sigImg.width*s,h=sigImg.height*s;
+  fctx.drawImage(sigImg,bx+(bw-w)/2,by+bh-h,w,h);
+}
+
+// Signature pad
+const sig=$('sig'),sctx=sig.getContext('2d');let drawing=false,inked=false,last=null;
+function openPad(){
+  $('modal').hidden=false;
+  const r=sig.getBoundingClientRect(),d=Math.max(2,devicePixelRatio||1);
+  sig.width=r.width*d;sig.height=r.height*d;
+  sctx.setTransform(d,0,0,d,0,0);sctx.lineCap='round';sctx.lineJoin='round';sctx.lineWidth=3.2;sctx.strokeStyle='#0b1f4d';
+  sctx.clearRect(0,0,r.width,r.height);inked=false;
+}
+function pt(e){const r=sig.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top];}
+sig.addEventListener('pointerdown',e=>{drawing=true;sig.setPointerCapture(e.pointerId);last=pt(e);sctx.beginPath();sctx.arc(last[0],last[1],1.4,0,7);sctx.fillStyle=sctx.strokeStyle;sctx.fill();inked=true;});
+sig.addEventListener('pointermove',e=>{if(!drawing)return;const p=pt(e);sctx.beginPath();sctx.moveTo(last[0],last[1]);sctx.lineTo(p[0],p[1]);sctx.stroke();last=p;inked=true;});
+['pointerup','pointercancel'].forEach(t=>sig.addEventListener(t,()=>drawing=false));
+$('clear').onclick=openPad;
+$('cancel').onclick=()=>{$('modal').hidden=true;};
+$('ok').onclick=()=>{
+  if(!inked){$('modal').hidden=true;return;}
+  // crop to the ink
+  const d=sctx.getImageData(0,0,sig.width,sig.height).data;let x0=sig.width,y0=sig.height,x1=0,y1=0;
+  for(let y=0;y<sig.height;y++)for(let x=0;x<sig.width;x++)if(d[(y*sig.width+x)*4+3]>10){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+  const c=document.createElement('canvas');c.width=x1-x0+8;c.height=y1-y0+8;
+  c.getContext('2d').drawImage(sig,x0-4,y0-4,c.width,c.height,0,0,c.width,c.height);
+  sigImg=c;render();
+  $('modal').hidden=true;zone.classList.add('done');
+  $('actions').hidden=false;$('after').hidden=false;$('hint').textContent='Signed. Send the signed copy back to Elisha.';
+};
+zone.onclick=openPad;$('redo').onclick=openPad;
+
+$('send').onclick=async()=>{
+  const blob=await new Promise(r=>form.toBlob(r,'image/jpeg',0.9));
+  const file=new File([blob],'Pioneer application signed.jpg',{type:'image/jpeg'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:'Signed pioneer application'});}catch(e){}
+    return;
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=file.name;document.body.appendChild(a);a.click();a.remove();
+};
+})();
+</script>
+</body>
+</html>
