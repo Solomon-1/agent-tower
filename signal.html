@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Signal Desk</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Signal">
+<meta name="theme-color" content="#1b2340">
+<style>
+:root{--bg:#f4f1e8;--ink:#1d2233;--mute:#5d6478;--card:#fff;--line:#d9d4c4;--acc:#c98a12;--a:#2f6fd6;--b:#c2410c;--good:#2e7d4f;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b2340;--ink:#f3eedd;--mute:#a9b0c8;--card:#26305a;--line:#3a4677;--acc:#f2b84b;--a:#7fb0ff;--b:#ff9a6b;--good:#7ad19b;--bad:#ff8a80}}
+:root[data-theme="dark"]{--bg:#1b2340;--ink:#f3eedd;--mute:#a9b0c8;--card:#26305a;--line:#3a4677;--acc:#f2b84b;--a:#7fb0ff;--b:#ff9a6b;--good:#7ad19b;--bad:#ff8a80}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+header{display:flex;align-items:center;gap:8px;padding:10px 0 6px;font-size:13px;color:var(--mute)}
+header b{color:var(--ink);font-size:15px}
+header .sp{flex:1}
+.pill{border:1px solid var(--line);border-radius:20px;padding:3px 9px;white-space:nowrap}
+main{flex:1;display:flex;flex-direction:column;min-height:0;max-width:640px;width:100%;margin:0 auto}
+#q{font-size:18px;font-weight:650;margin:6px 0 10px}
+#opts{flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+.opt{position:relative;flex:1;min-height:90px;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:14px 14px 14px 46px;cursor:pointer;text-align:left;font:inherit;color:inherit;display:flex;flex-direction:column;justify-content:center;transition:transform .12s,border-color .12s}
+.opt .k{position:absolute;left:12px;top:12px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
+.opt h3{margin:0 0 4px;font-size:16px}.opt p{margin:0;color:var(--mute);font-size:15px}
+.opt .more{margin-top:8px;font-size:13px;color:var(--acc);background:none;border:0;padding:0;font:inherit;font-size:13px;cursor:pointer}
+.opt .detail{margin-top:8px;font-size:14px;white-space:pre-wrap;max-height:40vh;overflow:auto;border-top:1px solid var(--line);padding-top:8px}
+.opt:active,.opt.hit{transform:scale(.98);border-color:var(--acc)}
+.opt.rank-on{border-color:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:8px}
+.grid button{padding:18px 0;font-size:18px}
+footer{display:grid;grid-template-columns:repeat(4,1fr) .6fr;gap:8px;padding:10px 0 12px}
+button.btn{font:inherit;font-size:14px;white-space:nowrap;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:12px 4px;cursor:pointer}
+button.pri{background:var(--acc);border-color:var(--acc);color:#1b1b1b;font-weight:650}
+#mic.on{background:var(--bad);color:#fff;border-color:var(--bad)}
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;color:var(--mute)}
+.center h1{color:var(--ink);margin:0;font-size:22px}
+.center button{max-width:300px;width:100%}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:#000c;color:#fff;padding:7px 14px;border-radius:18px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+#toast.on{opacity:1}
+#listenbar{display:none;align-items:center;gap:8px;font-size:14px;color:var(--mute);padding:4px 0}
+body.listen #listenbar{display:flex}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--mute)}.dot.hear{background:var(--bad);animation:p 1s infinite}
+@keyframes p{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.opt{transition:none}.dot.hear{animation:none}}
+</style>
+</head>
+<body>
+<header><b>Signal Desk</b><span class="sp"></span><span class="pill" id="rate">0 / min</span><span class="pill" id="left">–</span><span class="pill" id="cons" title="Agreement with yourself on repeat checks">✓ –</span></header>
+<div id="listenbar"><span class="dot" id="dot"></span><span id="heard">Listening mode</span></div>
+<main id="main"><div class="center"><h1>Signal Desk</h1><p>Fast, blind picks that teach the agents what you value.</p><button class="btn pri" id="go">Sign in with Google</button><button class="btn" id="demo">Try with sample cards</button></div></main>
+<footer id="foot" hidden>
+  <button class="btn" id="bBoth" title="Down arrow">Both bad</button>
+  <button class="btn" id="bSkip" title="Space">Unsure</button>
+  <button class="btn" id="mic" title="Hold: say why">🎙 Why</button>
+  <button class="btn" id="bMode">🎧 Listen</button>
+  <button class="btn" id="bUndo" title="Undo (two-finger tap)" aria-label="Undo">↶</button>
+</footer>
+<div id="toast"></div>
+<script src="config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="shim.js"></script>
+<script>
+(function(){
+'use strict';
+// Signal Desk. Reads asks the agent engine writes to Drive (Agent Tower/Evolution Lab/asks) and writes his answers to
+// Evolution Lab/signals as sig-<UTC>-<rand>.json plus a .md twin. Contract: Evolution Lab/README.md (schemas evo.ask/1, evo.signal/1).
+// Drive is the only store; localStorage only holds unsent answers until they are written.
+const TOWER='15vD8tWz4E-A8cAYP4GHFaq6Q9nU9HNIs',LAB='Evolution Lab';
+const CHECK_EVERY=8,FLUSH_N=10,FLUSH_MS=30000;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const stamp=()=>new Date().toISOString().replace(/\.\d+Z$/,'Z').replace(/:/g,'-');
+const rnd=()=>Math.random().toString(36).slice(2,7);
+const S={demo:false,dirs:{},queue:[],done:{},cur:null,shownAt:0,left:null,rank:[],out:[],hist:[],n:0,start:0,checks:{n:0,agree:0},
+  session:'s-'+stamp()+'-'+rnd(),mode:'card',sinceCheck:0};
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),1800);}
+try{S.out=JSON.parse(localStorage.getItem('sig.unsent')||'[]');}catch(e){}
+const keep=()=>{try{localStorage.setItem('sig.unsent',JSON.stringify(S.out));}catch(e){}};
+
+// ---------- Drive ----------
+const call=(tool,args)=>HOST.mcp.callTool('Google Drive',tool,args).then(r=>r.payload);
+const text=b64=>new TextDecoder().decode(Uint8Array.from(atob(b64),c=>c.charCodeAt(0)));
+async function child(parent,name){const r=await call('search_files',{query:"parentId = '"+parent+"' and title = '"+name+"'",pageSize:5});return ((r.files||[])[0]||{}).id;}
+async function list(parent,prefix,n){const r=await call('search_files',{query:"parentId = '"+parent+"' and title contains '"+prefix+"'",pageSize:n||200,orderBy:'createdTime desc'});return r.files||[];}
+async function read(id){return text((await call('download_file_content',{fileId:id})).content);}
+async function pool(items,f,k){const out=[];let i=0;await Promise.all(Array.from({length:k||6},async()=>{while(i<items.length){const j=i++;try{out[j]=await f(items[j]);}catch(e){out[j]=null;}}}));return out;}
+
+async function loadDrive(){
+  setCenter('Loading asks from Drive…');
+  const lab=await child(TOWER,LAB);
+  if(!lab)return setCenter('No "Evolution Lab" folder in Agent Tower yet. The agent engine creates it with the first asks.');
+  S.dirs.lab=lab;S.dirs.asks=await child(lab,'asks');S.dirs.signals=await child(lab,'signals');
+  if(!S.dirs.asks||!S.dirs.signals)return setCenter('Evolution Lab is missing its asks or signals folder.');
+  const [af,sf]=await Promise.all([list(S.dirs.asks,'ask-',300),list(S.dirs.signals,'sig-',300)]);
+  const sigs=await pool(sf.filter(f=>/\.json$/.test(f.title)),f=>read(f.id).then(JSON.parse));
+  for(const s of sigs)for(const it of (s&&s.items)||[])if(!it.check)S.done[it.ask_id]=it;
+  for(const o of S.out)for(const it of o.items)if(!it.check)S.done[it.ask_id]=it;
+  const asks=await pool(af.filter(f=>/\.json$/.test(f.title)),f=>read(f.id).then(JSON.parse));
+  setQueue(asks.filter(Boolean));
+  flush();
+}
+function setQueue(asks){
+  const now=Date.now();
+  S.all={};for(const a of asks)S.all[a.id]=a;
+  S.queue=asks.filter(a=>!S.done[a.id]&&(!a.expires||Date.parse(a.expires)>now))
+    .sort((x,y)=>(x.priority||2)-(y.priority||2)||String(x.created).localeCompare(String(y.created)));
+  S.start=Date.now();next();
+}
+
+// ---------- flow ----------
+function pickCheck(){
+  // Re-show an answered pairwise ask with sides swapped, to measure how consistent the signal is.
+  const c=Object.values(S.done).filter(d=>d.kind==='pairwise'&&d.verdict==='pick'&&S.all[d.ask_id]);
+  if(!c.length)return null;const d=c[Math.floor(Math.random()*c.length)];
+  return {ask:S.all[d.ask_id],check:true,prev:d};
+}
+function next(){
+  let item=null;
+  if(S.sinceCheck>=CHECK_EVERY){item=pickCheck();S.sinceCheck=0;}
+  if(!item){const a=S.queue.shift();if(a)item={ask:a};}
+  S.cur=item;S.rank=[];
+  if(!item){stopListen();return setCenter(S.n?'All caught up. '+S.n+' answers this session.':'No asks waiting. The agents will post more.',true);}
+  const a=item.ask;
+  if(a.kind==='pairwise'){
+    // Sides are random; a check deliberately flips the side it was first shown on.
+    let flip=Math.random()<.5;if(item.check&&item.prev.left_id)flip=item.prev.left_id===a.options[0].id;
+    item.opts=flip?[a.options[1],a.options[0]]:a.options.slice(0,2);
+  }else item.opts=(a.options||[]).slice();
+  if(a.kind==='rank')item.opts.sort(()=>Math.random()-.5);
+  render();S.shownAt=performance.now();updStats();
+  if(S.mode==='listen')speakItem();
+}
+function answer(o){
+  const it=S.cur;if(!it)return;const a=it.ask;
+  const rec={ask_id:a.id,kind:a.kind,verdict:o.verdict||'pick',skipped:o.verdict==='unsure',ms_to_answer:Math.round(performance.now()-S.shownAt),
+    channel:o.channel||'tap',presentation:S.mode,session_id:S.session,at:new Date().toISOString()};
+  if(o.winner!==undefined)rec.winner_id=o.winner;
+  if(o.ranking)rec.ranking=o.ranking;
+  if(o.value!==undefined)rec.value=o.value;
+  if(a.kind==='pairwise'&&it.opts[0])rec.left_id=it.opts[0].id;
+  if(it.check){rec.check=true;rec.repeat_of=a.id;S.checks.n++;
+    const agree=rec.verdict==='pick'&&rec.winner_id===it.prev.winner_id;if(agree)S.checks.agree++;rec.agreed=agree;}
+  else{S.done[a.id]=rec;S.sinceCheck++;}
+  S.hist.push({rec,item:it});S.n++;
+  S.buf=S.buf||[];S.buf.push(rec);
+  if(S.buf.length>=FLUSH_N)queueBatch();
+  next();
+}
+function undo(){
+  const h=S.hist.pop();if(!h)return toast('Nothing to undo');
+  const i=(S.buf||[]).indexOf(h.rec);if(i<0){S.hist.push(h);return toast('Already saved to Drive');}
+  S.buf.splice(i,1);S.n--;
+  if(h.rec.check){S.checks.n--;if(h.rec.agreed)S.checks.agree--;}else{delete S.done[h.rec.ask_id];S.sinceCheck=Math.max(0,S.sinceCheck-1);}
+  if(S.cur&&!S.cur.check)S.queue.unshift(S.cur.ask);
+  S.cur=null;S.queue.unshift(h.item.ask);
+  if(h.item.check){S.queue.shift();S.cur=h.item;render();S.shownAt=performance.now();}else next();
+  toast('Undone');
+}
+function comment(t){
+  const h=S.hist[S.hist.length-1];if(!h)return toast('Answer one first, then say why');
+  h.rec.comment=(h.rec.comment?h.rec.comment+' ':'')+t;toast('Noted: '+t.slice(0,60));
+}
+
+// ---------- saving ----------
+function queueBatch(){if(!S.buf||!S.buf.length)return;S.out.push({stamp:stamp()+'-'+rnd(),items:S.buf});S.buf=[];keep();flush();}
+async function flush(){
+  if(S.demo||!S.dirs.signals||S.flushing)return;S.flushing=true;
+  try{
+    while(S.out.length){
+      const b=S.out[0],name='sig-'+b.stamp;
+      const body={schema:'evo.signal/1',session_id:S.session,written:new Date().toISOString(),items:b.items};
+      await call('create_file',{parentId:S.dirs.signals,title:name+'.json',textContent:JSON.stringify(body,null,1),contentMimeType:'application/json',disableConversionToGoogleType:true});
+      await call('create_file',{parentId:S.dirs.signals,title:name+'.md',textContent:md(b,name),contentMimeType:'text/markdown',disableConversionToGoogleType:true}).catch(()=>{});
+      S.out.shift();keep();
+    }
+  }catch(e){toast('Saving paused: '+(e.message||e)+'. Will retry.');}
+  S.flushing=false;
+}
+function md(b,name){
+  const t=id=>{for(const a of Object.values(S.all||{}))for(const o of a.options||[])if(o.id===id)return o.title||id;return id||'';};
+  const rows=b.items.map(i=>{const a=(S.all||{})[i.ask_id]||{};
+    const ans=i.verdict!=='pick'?i.verdict:i.ranking?i.ranking.map(t).join(' > '):i.value!==undefined?(i.kind==='price'?'$':'')+i.value:t(i.winner_id);
+    return '| '+[(a.question||i.ask_id),ans,(i.ms_to_answer/1000).toFixed(1)+'s',i.check?(i.agreed?'repeat, agreed':'repeat, CHANGED'):'',i.comment||''].map(x=>String(x).replace(/\|/g,'/')).join(' | ')+' |';});
+  return '# '+name+'\n\nSignal Desk answers from Elisha, session '+S.session+'. Machine copy: '+name+'.json. Parent: [[Evolution Lab]]\n\n| Ask | Answer | Time | Check | Why |\n|---|---|---|---|---|\n'+rows.join('\n')+'\n';
+}
+addEventListener('visibilitychange',()=>{if(document.hidden)queueBatch();});
+setInterval(()=>{if(S.buf&&S.buf.length&&S.hist.length&&Date.now()-Date.parse(S.hist[S.hist.length-1].rec.at)>FLUSH_MS)queueBatch();},5000);
+
+// ---------- render ----------
+function setCenter(msg,end){$('main').innerHTML='<div class="center"><p>'+esc(msg)+'</p>'+(end?'<button class="btn" id="again">Check for new asks</button>':'')+'</div>';$('foot').hidden=true;
+  if(end){$('again').onclick=()=>{queueBatch();S.demo?setQueue(DEMO):loadDrive().catch(fail);};}}
+const COL=['var(--a)','var(--b)','#7b5bd6','#2e7d4f','#b8860b'];
+function optHtml(o,i,key){return '<button class="opt" data-i="'+i+'"><span class="k" style="background:'+COL[i%5]+'">'+key+'</span><h3>'+esc(o.title||o.id)+'</h3><p>'+esc(o.one_line||'')+'</p>'+
+  (o.detail||o.detail_md?'<span class="more" data-more="'+i+'">More</span><div class="detail" hidden></div>':'')+'</button>';}
+function render(){
+  const it=S.cur,a=it.ask;$('foot').hidden=false;
+  let h='<div id="q">'+esc(a.question||'Which is better?')+'</div><div id="opts">';
+  if(a.kind==='pairwise')h+=it.opts.map((o,i)=>optHtml(o,i,i?'2':'1')).join('');
+  else if(a.kind==='rank')h+='<p style="margin:0;color:var(--mute);font-size:14px">Tap best to worst.</p>'+it.opts.map((o,i)=>optHtml(o,i,'·')).join('');
+  else if(a.kind==='yesno')h+='<div class="grid"><button class="btn" data-v="yes">Yes</button><button class="btn" data-v="no">No</button></div>'+(it.opts[0]?optHtml(it.opts[0],0,'?'):'');
+  else if(a.kind==='rate')h+=(it.opts[0]?optHtml(it.opts[0],0,'?'):'')+'<div class="grid">'+[1,2,3,4,5].map(v=>'<button class="btn" data-v="'+v+'">'+v+'</button>').join('')+'</div>';
+  else if(a.kind==='price'){const pts=(a.prices||[0,5,10,20,50,100]);h+=(it.opts[0]?optHtml(it.opts[0],0,'$'):'')+'<div class="grid">'+pts.map(v=>'<button class="btn" data-v="'+v+'">$'+v+'</button>').join('')+'</div>';}
+  else h+=it.opts.map((o,i)=>optHtml(o,i,String(i+1))).join('');
+  h+='</div>';if(a.kind==='pairwise'&&S.n<3)h+='<p style="margin:6px 0 0;font-size:12px;color:var(--mute);text-align:center">Tap or swipe: left = 1, right = 2, down = both bad</p>';$('main').innerHTML=h;
+  $('main').querySelectorAll('.opt').forEach(el=>el.onclick=e=>{
+    const m=e.target.closest('[data-more]');if(m){e.stopPropagation();return more(+m.dataset.more,el);}
+    const i=+el.dataset.i;
+    if(a.kind==='pairwise'||a.kind==='choice'||!a.kind){el.classList.add('hit');answer({winner:it.opts[i].id});}
+    else if(a.kind==='rank'&&!el.classList.contains('rank-on')){el.classList.add('rank-on');el.querySelector('.k').textContent=S.rank.length+1;S.rank.push(it.opts[i].id);
+      if(S.rank.length>=it.opts.length-1){for(const o of it.opts)if(!S.rank.includes(o.id))S.rank.push(o.id);answer({ranking:S.rank.slice()});}}
+  });
+  $('main').querySelectorAll('[data-v]').forEach(el=>el.onclick=()=>{const v=el.dataset.v;answer(a.kind==='yesno'?{value:v}:{value:+v});});
+}
+async function more(i,el){
+  const d=el.querySelector('.detail');if(!d.hidden){d.hidden=true;return;}
+  const o=S.cur.opts[i];d.hidden=false;
+  if(o.detail){d.textContent=o.detail;return;}
+  d.textContent='Loading…';
+  try{const name=String(o.detail_md).split('/').pop();
+    const r=await call('search_files',{query:"'"+S.dirs.lab+"' in ancestors and title = '"+name.replace(/'/g,"\\'")+"'",pageSize:1});
+    const f=(r.files||[])[0];d.textContent=f?(await read(f.id)).slice(0,6000):'Detail file not found.';}
+  catch(e){d.textContent='Could not load: '+(e.message||e);}
+}
+function updStats(){
+  const min=(Date.now()-S.start)/60000;$('rate').textContent=(min>.2?(S.n/min).toFixed(1):'0')+' / min';
+  $('left').textContent=S.queue.length+' left';
+  $('cons').textContent='✓ '+(S.checks.n?Math.round(100*S.checks.agree/S.checks.n)+'% of '+S.checks.n:'–');
+}
+
+// ---------- controls ----------
+$('bBoth').onclick=()=>S.cur&&answer({verdict:'both_bad',winner:null});
+$('bUndo').onclick=undo;
+$('bSkip').onclick=()=>S.cur&&answer({verdict:'unsure',winner:null});
+addEventListener('keydown',e=>{
+  if(!S.cur||e.target.tagName==='INPUT')return;const k=e.key;
+  if(S.cur.ask.kind==='pairwise'&&(k==='ArrowLeft'||k==='ArrowUp'||k==='1'))answer({winner:S.cur.opts[0].id});
+  else if(S.cur.ask.kind==='pairwise'&&(k==='ArrowRight'||k==='2'))answer({winner:S.cur.opts[1].id});
+  else if(k==='ArrowDown')answer({verdict:'both_bad',winner:null});
+  else if(k===' '){e.preventDefault();answer({verdict:'unsure',winner:null});}
+  else if(k==='t')answer({verdict:'tie',winner:null});
+  else if((e.metaKey||e.ctrlKey)&&k==='z')undo();
+});
+// Swipe on the cards: left = top card (1), right = bottom card (2), down = both bad.
+let sx=0,sy=0;
+$('main').addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+$('main').addEventListener('touchend',e=>{if(!S.cur||S.cur.ask.kind!=='pairwise')return;const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+  if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.5)answer({winner:S.cur.opts[dx<0?0:1].id,channel:'swipe'});
+  else if(dy>110&&Math.abs(dy)>Math.abs(dx)*1.5&&$('opts').scrollTop<=0)answer({verdict:'both_bad',winner:null,channel:'swipe'});},{passive:true});
+// Two-finger tap = undo
+$('main').addEventListener('touchstart',e=>{if(e.touches.length===2)undo();},{passive:true});
+
+// ---------- voice ----------
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function hear(onText,onEnd){
+  if(!SR){toast('Voice input is not available in this browser');return null;}
+  const r=new SR();r.lang='en-US';r.interimResults=false;r.maxAlternatives=3;
+  r.onresult=e=>{const alts=[...e.results[e.results.length-1]].map(x=>x.transcript);onText(alts);};
+  r.onerror=e=>{if(e.error==='not-allowed')toast('Microphone blocked');};
+  r.onend=()=>onEnd&&onEnd();try{r.start();}catch(e){}return r;
+}
+// Hold the mic to say why you picked the last one.
+let why=null;
+const micDown=e=>{e.preventDefault();$('mic').classList.add('on');why=hear(a=>comment(a[0]),()=>$('mic').classList.remove('on'));};
+const micUp=()=>{if(why)try{why.stop();}catch(e){}};
+$('mic').addEventListener('pointerdown',micDown);$('mic').addEventListener('pointerup',micUp);$('mic').addEventListener('pointerleave',micUp);
+
+// Listen mode: reads each ask aloud and takes a spoken answer, hands-free (for the car).
+const NUM={one:1,won:1,first:1,'1':1,two:2,to:2,too:2,second:2,'2':2,three:3,'3':3,four:4,for:4,'4':4,five:5,'5':5};
+function say(t,then){const u=new SpeechSynthesisUtterance(t);u.rate=1.08;u.onend=then;speechSynthesis.cancel();speechSynthesis.speak(u);}
+function speakItem(){
+  const it=S.cur;if(!it)return;const a=it.ask;
+  if(a.kind==='rank'){answer({verdict:'unsure',winner:null,channel:'voice'});return;}// ranking needs the screen
+  let t=a.question+'. ';
+  if(a.kind==='pairwise')t+='One: '+it.opts[0].title+'. '+(it.opts[0].one_line||'')+' Two: '+it.opts[1].title+'. '+(it.opts[1].one_line||'');
+  else{if(it.opts[0])t+=it.opts[0].title+'. '+(it.opts[0].one_line||'');t+=a.kind==='rate'?' One to five?':a.kind==='price'?' How many dollars?':a.kind==='yesno'?' Yes or no?':'';}
+  say(t,()=>{S.shownAt=performance.now();listenFor();});
+}
+function listenFor(tries){
+  if(S.mode!=='listen'||!S.cur)return;tries=tries||0;$('dot').classList.add('hear');
+  S.rec=hear(alts=>{
+    $('dot').classList.remove('hear');const raw=alts.join(' | ').toLowerCase();$('heard').textContent='Heard: '+alts[0];
+    const a=S.cur.ask,w=alts[0].toLowerCase().trim(),words=w.split(/\s+/);
+    if(/\b(stop|pause|exit)\b/.test(raw))return setMode('card');
+    if(/\b(repeat|again|what)\b/.test(w))return speakItem();
+    if(/\bundo\b/.test(w)){undo();return;}
+    if(/\b(neither|both bad|none)\b/.test(raw))return answer({verdict:'both_bad',winner:null,channel:'voice'});
+    if(/\b(skip|unsure|not sure|don't know|pass)\b/.test(raw))return answer({verdict:'unsure',winner:null,channel:'voice'});
+    if(/\btie\b|\bsame\b/.test(raw))return answer({verdict:'tie',winner:null,channel:'voice'});
+    const why=(w.match(/\bbecause\b(.*)/)||[])[1];
+    let n=null;for(const x of words){if(NUM[x]){n=NUM[x];break;}}
+    if(a.kind==='pairwise'&&(n===1||n===2)){answer({winner:S.cur.opts[n-1].id,channel:'voice'});if(why)comment(why.trim());return;}
+    if(a.kind==='yesno'&&/\b(yes|yeah|yep|no|nope)\b/.test(w)){answer({value:/\bn(o|ope)\b/.test(w)?'no':'yes',channel:'voice'});return;}
+    if(a.kind==='rate'&&n>=1&&n<=5){answer({value:n,channel:'voice'});return;}
+    if(a.kind==='price'){const m=w.match(/\d+(\.\d+)?/);if(m){answer({value:+m[0],channel:'voice'});return;}if(/\b(zero|nothing|free)\b/.test(w)){answer({value:0,channel:'voice'});return;}}
+    say('Sorry, again?',()=>listenFor(tries+1));
+  },()=>{$('dot').classList.remove('hear');if(S.mode==='listen'&&S.rec&&!S.rec.got&&tries<2)setTimeout(()=>listenFor(tries+1),300);});
+  if(S.rec){const r=S.rec,orig=r.onresult;r.onresult=e=>{r.got=true;orig(e);};}
+}
+function stopListen(){if(S.rec)try{S.rec.abort();}catch(e){}speechSynthesis.cancel();}
+function setMode(m){S.mode=m;document.body.classList.toggle('listen',m==='listen');$('bMode').textContent=m==='listen'?'✋ Cards':'🎧 Listen';
+  if(m==='listen'){if(!SR)return setMode('card'),toast('Voice input is not available in this browser');say('Listening mode. Say one or two, neither, skip, repeat, or stop.',()=>speakItem());}
+  else{stopListen();$('heard').textContent='Listening mode';}}
+$('bMode').onclick=()=>setMode(S.mode==='listen'?'card':'listen');
+
+// ---------- start ----------
+function fail(e){setCenter('Something went wrong: '+(e.message||e),true);}
+HOST.auth.onNeed=()=>{toast('Sign-in expired. Tap anywhere to renew.');addEventListener('click',()=>HOST.signIn(true).catch(()=>{}),{once:true});};
+$('go').onclick=()=>{
+  if(HOST.fresh())return loadDrive().catch(fail);
+  HOST.signIn(false).then(()=>loadDrive().catch(fail),e=>toast('Sign-in did not finish: '+e.message));
+};
+$('demo').onclick=()=>{S.demo=true;setQueue(DEMO.map(a=>JSON.parse(JSON.stringify(a))));toast('Sample cards: nothing is saved');};
+const DEMO=[
+ {id:'demo-1',kind:'pairwise',question:'Which product would sell first?',options:[{id:'d1a',title:'Printable chore chart pack',one_line:'Editable PDF chore charts for families, $6, sold on Etsy.'},{id:'d1b',title:'Patient flossing handout set',one_line:'Plain-language oral hygiene handouts for dental offices, $19.'}]},
+ {id:'demo-2',kind:'pairwise',question:'Which pitch is more honest?',options:[{id:'d2a',title:'"Doubles your income"',one_line:'Bold claim with no source, big promise up front.'},{id:'d2b',title:'"Saves an hour a week"',one_line:'Smaller claim, with a timed example shown.'}]},
+ {id:'demo-3',kind:'price',question:'What would you pay for this?',options:[{id:'d3',title:'CE renewal tracker',one_line:'Tracks a hygienist\'s continuing education hours and renewal date.'}]},
+ {id:'demo-4',kind:'rate',question:'How useful is this to a busy office manager?',options:[{id:'d4',title:'Weekly no-show report',one_line:'One email each Monday listing last week\'s no-shows and their recall dates.'}]},
+ {id:'demo-5',kind:'rank',question:'Rank these first sales channels',options:[{id:'d5a',title:'Etsy',one_line:'Existing traffic, low price ceiling.'},{id:'d5b',title:'Direct email to offices',one_line:'Slow, high price, needs trust.'},{id:'d5c',title:'Gumroad',one_line:'No traffic of its own.'}]},
+ {id:'demo-6',kind:'yesno',question:'Would you buy this yourself?',options:[{id:'d6',title:'Ultrasonic scaler tip wear gauge',one_line:'A printed card that shows when a scaler tip is worn out.'}]},
+ {id:'demo-7',kind:'pairwise',question:'Which agent reply is better?',options:[{id:'d7a',title:'Short and direct',one_line:'Answers in two sentences and names the one next step.'},{id:'d7b',title:'Thorough',one_line:'Explains three options with pros and cons before recommending one.'}]}
+];
+if(HOST.fresh())loadDrive().catch(fail);
+})();
+</script>
+</body>
+</html>
