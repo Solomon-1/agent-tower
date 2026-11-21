@@ -32,6 +32,7 @@ main{flex:1;display:flex;flex-direction:column;min-height:0;max-width:640px;widt
 .opt.rank-on{border-color:var(--acc)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:8px}
 .grid button{padding:18px 0;font-size:18px}
+footer[hidden]{display:none}
 footer{display:grid;grid-template-columns:repeat(4,1fr) .6fr;gap:8px;padding:10px 0 12px}
 button.btn{font:inherit;font-size:14px;white-space:nowrap;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:12px 4px;cursor:pointer}
 button.pri{background:var(--acc);border-color:var(--acc);color:#1b1b1b;font-weight:650}
@@ -39,6 +40,7 @@ button.pri{background:var(--acc);border-color:var(--acc);color:#1b1b1b;font-weig
 .center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;color:var(--mute)}
 .center h1{color:var(--ink);margin:0;font-size:22px}
 .center button{max-width:300px;width:100%}
+#act{flex:1;overflow:auto;font-size:15px}#act h2{font-size:18px;margin:14px 0 6px}#act h3{font-size:16px;margin:12px 0 4px}#act .tb{overflow-x:auto;background:var(--card);border-radius:8px;padding:6px;margin:6px 0}#act table{border-collapse:collapse;font-size:13px;width:100%}#act td,#act th{text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);vertical-align:top}#act ul{margin:4px 0;padding-left:20px}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:#000c;color:#fff;padding:7px 14px;border-radius:18px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
 #toast.on{opacity:1}
 #listenbar{display:none;align-items:center;gap:8px;font-size:14px;color:var(--mute);padding:4px 0}
@@ -49,7 +51,7 @@ body.listen #listenbar{display:flex}
 </style>
 </head>
 <body>
-<header><b>Signal Desk</b><span class="sp"></span><span class="pill" id="rate">0 / min</span><span class="pill" id="left">–</span><span class="pill" id="cons" title="Agreement with yourself on repeat checks">✓ –</span></header>
+<header><b>Signal Desk</b><span class="sp"></span><span class="pill" id="rate">0 / min</span><span class="pill" id="left">–</span><span class="pill" id="cons" title="Agreement with yourself on repeat checks">✓ –</span><button class="pill" id="bAct" style="background:none;color:inherit;font:inherit;cursor:pointer">Activity</button></header>
 <div id="listenbar"><span class="dot" id="dot"></span><span id="heard">Listening mode</span></div>
 <main id="main"><div class="center"><h1>Signal Desk</h1><p>Fast, blind picks that teach the agents what you value.</p><button class="btn pri" id="go">Sign in with Google</button><button class="btn" id="demo">Try with sample cards</button></div></main>
 <footer id="foot" hidden>
@@ -135,7 +137,7 @@ function next(){
   if(S.mode==='listen')speakItem();
 }
 function answer(o){
-  const it=S.cur;if(!it)return;const a=it.ask;
+  const it=S.cur;if(!it||S.actOpen)return;const a=it.ask;
   const rec={ask_id:a.id,kind:a.kind,verdict:o.verdict||'pick',skipped:o.verdict==='unsure',ms_to_answer:Math.round(performance.now()-S.shownAt),
     channel:o.channel||'tap',presentation:S.mode,session_id:S.session,at:new Date().toISOString()};
   if(o.winner!==undefined)rec.winner_id=o.winner;
@@ -305,6 +307,35 @@ function setMode(m){S.mode=m;document.body.classList.toggle('listen',m==='listen
   if(m==='listen'){if(!SR)return setMode('card'),toast('Voice input is not available in this browser');say('Listening mode. Say one or two, neither, skip, repeat, or stop.',()=>speakItem());}
   else{stopListen();$('heard').textContent='Listening mode';}}
 $('bMode').onclick=()=>setMode(S.mode==='listen'?'card':'listen');
+
+
+// ---------- activity ----------
+// Shows Evolution Lab/ACTIVITY.md (owned by the EvolutionLab script, rewritten hourly): what the automation is doing for him.
+function mdHtml(t){
+  const inl=x=>esc(x).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>');
+  const out=[];let list=false,tb=[];
+  const flushT=()=>{if(tb.length){const rows=tb.filter(r=>!/^\s*\|[\s:|-]+\|\s*$/.test(r)).map(r=>r.trim().replace(/^\||\|$/g,'').split('|'));
+    out.push('<div class="tb"><table>'+rows.map((c,i)=>'<tr>'+c.map(x=>(i?'<td>':'<th>')+inl(x.trim())+(i?'</td>':'</th>')).join('')+'</tr>').join('')+'</table></div>');tb=[];}};
+  for(const l of String(t).split('\n')){
+    if(/^\s*\|/.test(l)){if(list){out.push('</ul>');list=false;}tb.push(l);continue;}flushT();
+    const m=l.match(/^(#{1,3})\s+(.*)/),li=l.match(/^\s*[-*]\s+(.*)/);
+    if(!li&&list){out.push('</ul>');list=false;}
+    if(m)out.push('<h'+(m[1].length+1)+'>'+inl(m[2])+'</h'+(m[1].length+1)+'>');
+    else if(li){if(!list){out.push('<ul>');list=true;}out.push('<li>'+inl(li[1])+'</li>');}
+    else if(l.trim())out.push('<p style="margin:6px 0">'+inl(l)+'</p>');
+  }
+  flushT();if(list)out.push('</ul>');return out.join('');
+}
+async function showActivity(){
+  if(S.actOpen){S.actOpen=false;$('bAct').textContent='Activity';if(S.cur){render();S.shownAt=performance.now();}else next();return;}
+  if(S.demo||!S.dirs.lab)return toast('Sign in first to see activity');
+  S.actOpen=true;$('bAct').textContent='Back';stopListen();if(S.mode==='listen')setMode('card');
+  $('foot').hidden=true;$('main').innerHTML='<div id="act"><p>Loading activity…</p></div>';
+  try{const f=(await list(S.dirs.lab,'ACTIVITY',5)).find(x=>x.title==='ACTIVITY.md');
+    $('act').innerHTML=f?mdHtml(await read(f.id)):'<p>No ACTIVITY.md yet. The Evolution Lab script writes it every hour.</p>';}
+  catch(e){$('act').innerHTML='<p>Could not load: '+esc(e.message||e)+'</p>';}
+}
+$('bAct').onclick=showActivity;
 
 // ---------- start ----------
 function fail(e){setCenter('Something went wrong: '+(e.message||e),true);}
